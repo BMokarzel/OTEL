@@ -1,0 +1,75 @@
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    restart: always
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./docker/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "8888:8888" # Prometheus metrics exposed by collector
+      - "8889:8889" # Prometheus exporter metrics
+      - "4317:4317" # OTLP gRPC receiver
+
+  zipkin:
+    image: openzipkin/zipkin:latest
+    ports:
+      - "9411:9411"
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    restart: always
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "14268"
+      - "14250"
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./docker/prometheus.yaml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  server-a:
+    build:
+      context: .
+      dockerfile: server-a/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - SERVER_ENABLE_TRACING=true
+      - SERVER_ENV=local
+      - SERVER_VERSION="1.0.0"
+      - SERVER_NAME="server-a"
+      - COLLECTOR_URL=otel-collector:4317
+      - SERVER_B_URL=http://server-b:8081
+    depends_on:
+      - jaeger
+      - prometheus
+      - otel-collector
+      - zipkin
+
+  server-b:
+    build:
+      context: .
+      dockerfile: server-b/Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      - SERVER_PORT=8081
+      - SERVER_ENABLE_TRACING=true
+      - SERVER_ENV=local
+      - SERVER_VERSION=1.0.0
+      - SERVER_NAME=server-b
+      - COLLECTOR_URL=otel-collector:4317
+      - VIACEP_API_URL=https://viacep.com.br/ws
+      - WEATHER_API_URL=http://api.weatherapi.com/v1/current.json
+      - WEATHER_API_KEY=34e6f3d1ecb74dd1941193145251811
+    depends_on:
+      - jaeger
+      - prometheus
+      - otel-collector
+      - zipkin
