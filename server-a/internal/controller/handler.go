@@ -33,7 +33,7 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	carrier := propagation.HeaderCarrier(r.Header)
 	ctx := r.Context()
 	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
-	ctx, span := h.Otel.OTELTracer.Start(ctx, "[GET] /")
+	_, span := h.Otel.OTELTracer.Start(ctx, "[GET] /")
 	defer span.End()
 
 	time.Sleep(time.Second * 2)

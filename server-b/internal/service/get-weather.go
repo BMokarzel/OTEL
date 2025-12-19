@@ -5,27 +5,23 @@ import (
 
 	controller_dto "github.com/BMokarzel/OTEL/server-b/internal/controller/dto"
 	viacep "github.com/BMokarzel/OTEL/server-b/internal/gateway/via-cep"
+	"github.com/BMokarzel/OTEL/server-b/pkg/errors"
 )
 
-func (s *Service) GetWeather(ctx context.Context, zipCode string) (interface{}, int) {
-
+func (s *Service) GetWeather(ctx context.Context, zipCode string) (controller_dto.GetWeatherOutput, error) {
 	ctx, mainSpan := s.Otel.OTELTracer.Start(ctx, "service.GetWather")
 	defer mainSpan.End()
 
 	var viaCepRes viacep.ViaCepOutput
 
 	viaCepRes, err := s.ViaCep.GetLocation(ctx, zipCode)
-	if err != nil || viaCepRes.Error == "true" {
-		return controller_dto.ErrorOutput{
-			Message: "can not find zipcode",
-		}, 404
+	if err != nil {
+		return controller_dto.GetWeatherOutput{}, errors.NewNotFoundError("can not find zipcode")
 	}
 
 	watherRes, err := s.WeatherApi.GetWeather(ctx, viaCepRes.Location)
 	if err != nil {
-		return controller_dto.ErrorOutput{
-			Message: "problem to get real time weather. If the problem persists, contact support",
-		}, 422
+		return controller_dto.GetWeatherOutput{}, errors.NewNotFoundError("error to get real time weather")
 	}
 
 	{
@@ -42,6 +38,6 @@ func (s *Service) GetWeather(ctx context.Context, zipCode string) (interface{}, 
 			TempF: tempF,
 			TempK: tempK,
 		}
-		return response, 200
+		return response, nil
 	}
 }

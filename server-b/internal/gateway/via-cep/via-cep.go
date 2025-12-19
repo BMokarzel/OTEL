@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/BMokarzel/OTEL/server-b/pkg/errors"
 	"github.com/BMokarzel/OTEL/server-b/pkg/logger"
 	"github.com/BMokarzel/OTEL/server-b/pkg/otel"
 )
@@ -30,7 +31,6 @@ func New(logger *logger.Logger, url string, otel *otel.Otel) *ViaCep {
 }
 
 func (v *ViaCep) GetLocation(ctx context.Context, cep string) (ViaCepOutput, error) {
-
 	url := fmt.Sprintf("%s/%s/json/", v.URL, cep)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -38,30 +38,36 @@ func (v *ViaCep) GetLocation(ctx context.Context, cep string) (ViaCepOutput, err
 		return ViaCepOutput{}, err
 	}
 
-	v.logger.Info(ctx).Msg("[DEBUG] Request: ", req)
-
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
+		v.logger.Error(ctx).Msg("Error to do request. Error: %s", err)
 		return ViaCepOutput{}, err
 	}
 
-	if res.StatusCode > 299 {
+	defer res.Body.Close()
 
-		v.logger.Info(ctx).Msg("[DEBUG] Response: ", res)
+	var response ViaCepOutput
 
-		return ViaCepOutput{}, fmt.Errorf("")
+	err = json.NewDecoder(res.Body).Decode(&response)
+	if err != nil {
+		v.logger.Error(ctx).Msg("Error to parse request body. Error: %s", err)
+		return ViaCepOutput{}, err
+	}
 
-	} else {
+	v.logger.Info(ctx).Msg("[DEBUG] Status code: %d. Message: %v", res.StatusCode, res.Body)
 
-		var response ViaCepOutput
-
-		err = json.NewDecoder(res.Body).Decode(&response)
-		if err != nil {
-			return ViaCepOutput{}, err
-		}
-
-		v.logger.Info(ctx).Msg("[DEBUG] Response: ", res)
-
+	switch {
+	case response.Error != "":
+		return ViaCepOutput{}, errors.NewBadRequestError("")
+	case res.StatusCode < 300:
 		return response, nil
+	case res.StatusCode == 400:
+		return ViaCepOutput{}, errors.NewBadRequestError("")
+	case res.StatusCode == 404:
+		return ViaCepOutput{}, errors.NewNotFoundError("")
+	case res.StatusCode == 422:
+		return ViaCepOutput{}, errors.NewUnprocessableError("")
+	default:
+		return ViaCepOutput{}, errors.NewInternalServerError("")
 	}
 }

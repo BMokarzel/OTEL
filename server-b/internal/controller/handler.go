@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/BMokarzel/OTEL/server-b/internal/service"
+	"github.com/BMokarzel/OTEL/server-b/pkg/errors"
+	pkg_http "github.com/BMokarzel/OTEL/server-b/pkg/http"
 	"github.com/BMokarzel/OTEL/server-b/pkg/logger"
 	otl "github.com/BMokarzel/OTEL/server-b/pkg/otel"
 	"go.opentelemetry.io/otel"
@@ -15,6 +17,7 @@ type Handler struct {
 	logger  *logger.Logger
 	Service *service.Service
 	Otel    *otl.Otel
+	Router  *pkg_http.Router
 }
 
 func New(logger *logger.Logger, service *service.Service, otel *otl.Otel) *Handler {
@@ -34,20 +37,20 @@ func (h *Handler) GetWeather(w http.ResponseWriter, r *http.Request) {
 
 	zipCode := r.URL.Query().Get("zipCode")
 
-	res, code := h.Service.GetWeather(ctx, zipCode)
-	if code != 200 {
-		w.WriteHeader(code)
+	res, err := h.Service.GetWeather(ctx, zipCode)
+	if err != nil {
+		h.Router.ErrorHandler(w, r, err)
 		return
 	}
 
 	body, err := json.Marshal(res)
 	if err != nil {
-		h.logger.Error(ctx).Msg("error to parse response body. Error: %s", err)
+		h.logger.Error(ctx).Msg("Error to parse response body. Error: %s", err)
 		span.RecordError(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		h.Router.ErrorHandler(w, r, errors.NewInternalServerError(""))
 		return
 	}
 
-	w.WriteHeader(code)
+	w.WriteHeader(http.StatusOK)
 	w.Write(body)
 }

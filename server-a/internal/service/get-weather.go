@@ -10,7 +10,6 @@ import (
 )
 
 func (s *Service) GetWeather(ctx context.Context, input controller_dto.GetWeatherInput) (json.RawMessage, error) {
-
 	ctx, mainSpan := s.Otel.OTELTracer.Start(ctx, "service.GetWeather")
 
 	defer mainSpan.End()
@@ -33,7 +32,6 @@ func (s *Service) GetWeather(ctx context.Context, input controller_dto.GetWeathe
 	{
 		res, err := s.ServiceB.Call(ctx, input.ZipCode)
 		if err != nil {
-			s.logger.Error(ctx).Msg("error to get weather with service b. Error: %s", err)
 			return nil, err
 		}
 

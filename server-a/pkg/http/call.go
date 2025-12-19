@@ -28,7 +28,6 @@ type Cl struct {
 }
 
 func (c *Cl) Call(ctx context.Context, param Param, response interface{}) error {
-
 	ctx, span := c.Otel.OTELTracer.Start(ctx, "http.Call")
 	defer span.End()
 

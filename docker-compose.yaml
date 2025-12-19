@@ -67,7 +67,7 @@ services:
       - COLLECTOR_URL=otel-collector:4317
       - VIACEP_API_URL=https://viacep.com.br/ws
       - WEATHER_API_URL=http://api.weatherapi.com/v1/current.json
-      - WEATHER_API_KEY=34e6f3d1ecb74dd1941193145251811
+      - WEATHER_API_KEY=645aa2103985414f85a175633252907
     depends_on:
       - jaeger
       - prometheus

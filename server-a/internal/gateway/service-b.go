@@ -10,13 +10,12 @@ import (
 )
 
 func (s *ServiceB) Call(ctx context.Context, zipCode string) (json.RawMessage, error) {
-
 	ctx, span := s.Otel.OTELTracer.Start(ctx, "server-b.Call")
 
 	defer span.End()
 
 	params := http_package.Params{
-		Path:   fmt.Sprintf("%s", s.Client.URL),
+		Path:   fmt.Sprintf("%s/", s.Client.URL),
 		Method: http.MethodGet,
 		Header: map[string]string{
 			"Content-Type": "application/json",
@@ -31,10 +30,9 @@ func (s *ServiceB) Call(ctx context.Context, zipCode string) (json.RawMessage, e
 
 	err := s.Client.Call(ctx, params, response)
 	if err != nil {
-		s.logger.Error(ctx).Msg("%s", err)
+		s.logger.Error(ctx).Msg("error to get weather with service b. Error: %s", err)
 		return nil, err
 	}
 
 	return *response, nil
-
 }

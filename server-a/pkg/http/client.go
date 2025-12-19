@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httputil"
 	"time"
 
 	"github.com/BMokarzel/OTEL/server-a/pkg/errors"
@@ -35,7 +34,6 @@ type Params struct {
 }
 
 func NewHttpClient(url string, logger *logger.Logger, otel *otel_pkg.Otel) (*HttpClient, error) {
-
 	client := http.Client{
 		Timeout: time.Minute * 3,
 	}
@@ -49,7 +47,6 @@ func NewHttpClient(url string, logger *logger.Logger, otel *otel_pkg.Otel) (*Htt
 }
 
 func (c *HttpClient) Call(ctx context.Context, param Params, response interface{}) error {
-
 	ctx, span := c.Otel.OTELTracer.Start(ctx, "http.Call")
 
 	defer span.End()
@@ -60,12 +57,14 @@ func (c *HttpClient) Call(ctx context.Context, param Params, response interface{
 	if param.Body != nil {
 		req, err = http.NewRequestWithContext(ctx, param.Method, param.Path, param.Body)
 		if err != nil {
+			c.logger.Error(ctx).Msg("Error to create request with body. Error: %s", err)
 			span.RecordError(err)
 			return err
 		}
 	} else {
 		req, err = http.NewRequestWithContext(ctx, param.Method, param.Path, nil)
 		if err != nil {
+			c.logger.Error(ctx).Msg("Error to create request. Error: %s", err)
 			span.RecordError(err)
 			return err
 		}
@@ -85,20 +84,15 @@ func (c *HttpClient) Call(ctx context.Context, param Params, response interface{
 	}
 	req.URL.RawQuery = q.Encode()
 
-	dumpReq, err := httputil.DumpRequest(req, true)
-	if err == nil {
-		c.logger.Info(ctx).Msg("[DEBUG] Client request - %s", dumpReq)
-		c.logger.Info(ctx).Msg("[DEBUG] Client query request - %s", req.URL.Query())
-		c.logger.Info(ctx).Msg("[DEBUG] Client header request - %s", req.Header)
-	}
-
-	//adicionar no header os termos para o otel
-
 	res, err := c.HttpClient.Do(req)
 	if err != nil {
 		span.RecordError(err)
 		return err
 	}
+
+	defer res.Body.Close()
+
+	c.logger.Info(ctx).Msg("[DEBUG] Response - %v", res)
 
 	if res.StatusCode > 299 {
 
